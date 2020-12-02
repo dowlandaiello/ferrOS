@@ -108,23 +108,60 @@ impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_
 
 impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        // Render ANSI escape codes properly by keeping a history of
-        // continguous chars that might constitute such an escape code:
-        let mut ansi_buff = [char; 15];
-        let mut abuff_i: u8 = 0;
+        // If the sum of chars following an ANSI escape code matches one of
+        // the below, render it correctly
+        let mut ansi_sum = [char; 15];
+        // Current display style set by the working ANSI esc code
+        let mut curr_ansi_style: u8 = VgatDisplayStyle {
+            blinking: false,
+            bg_color: Color::Black,
+            fg_color: Color::White,
+        }
+        .into();
+        let in_ansi_esc = false;
 
-        const  = [r"\u001b", r"\033", r"\x1b"];
-        const ACCEPTED_ANSI_CHECKSUMS = 
+        //const ANSI_ESCAPE_CODES: [&'static char] = [r#"\u001b"#, r#"\033"#, r#"\x1b"#];
+        const ACCEPTED_ANSI_CHECKSUMS: [u16] = [
+            // \u001b ASCII sum
+            92 + 117 + 48 + 48 + 49 + 98,
+            // \033 ASCII sum
+            92 + 48 + 51 + 51,
+            // \x1b ASCII sum
+            92 + 120 + 49 + 98,
+        ];
+        const MIN_ACCEPTABLE_ANSI_ESC_CHECKSUM: u16 = ACCEPTED_ANSI_CHECKSUMS[1];
+        const MAX_ACCEPTABLE_ANSI_ESC_CHECKSUM: u16 = ACCEPTED_ANSI_CHECKSUMS[0];
 
         for c in s.chars() {
-            if (abuff_i > 0) ^ (c == '\\') {
-                match c {
-                    // Longest ANSI prefix is \u001b, making [ at index 6
-                    '[' => abuff_i < 7,
-                }
+            // Each \ indicates, at least, that a new ANSI escape code is
+            // beginning - regardless of if the \ is extraneous or not
+            if c == '\\' {
+                ansi_sum = 0;
+                in_ansi_esc = true;
+            }
 
-                ansi_buff[0] = c;
-                abuff_i += 1;
+            ansi_sum += c;
+
+            if ansi_sum > MAX_ACCEPTABLE_ANSI_ESC_CHECKSUM {
+                ansi_sum = 0;
+            }
+
+            // Current ANSI escape code checksum must be at least that of the
+            // shortest ANSI escape pref. (i.e., \033)
+            if ansi_sum >= MIN_ACCEPTABLE_ANSI_ESC_CHECKSUM {
+                for accepted_checksum in ACCEPTED_ANSI_CHECKSUMS {
+                    if ansi_sum == accepted_checksum {
+
+                    }
+                }
+            }
+
+            if !in_ansi_esc {
+                // Put a char on the screen with the current ANSI style
+                Self::write_char(VgatChar {
+                    style: curr_ansi_style,
+                    value: c,
+                });
             }
         }
 

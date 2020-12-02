@@ -113,10 +113,17 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
         let mut ansi_buff = [char; 15];
         let mut abuff_i: u8 = 0;
 
+        const  = [r"\u001b", r"\033", r"\x1b"];
+        const ACCEPTED_ANSI_CHECKSUMS = 
+
         for c in s.chars() {
-            if c == '\\' && !in_ansi_escape {
-                ansi_buff[abuff_i] = c;
-                in_ansi_escape = true;
+            if (abuff_i > 0) ^ (c == '\\') {
+                match c {
+                    // Longest ANSI prefix is \u001b, making [ at index 6
+                    '[' => abuff_i < 7,
+                }
+
+                ansi_buff[0] = c;
                 abuff_i += 1;
             }
         }

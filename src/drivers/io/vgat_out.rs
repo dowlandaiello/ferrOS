@@ -110,7 +110,7 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         // If the sum of chars following an ANSI escape code matches one of
         // the below, render it correctly
-        let mut ansi_sum = [char; 15];
+        let mut ansi_sum: u16 = 0;
         // Current display style set by the working ANSI esc code
         let mut curr_ansi_style: u8 = VgatDisplayStyle {
             blinking: false,
@@ -121,7 +121,7 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
         let in_ansi_esc = false;
 
         //const ANSI_ESCAPE_CODES: [&'static char] = [r#"\u001b"#, r#"\033"#, r#"\x1b"#];
-        const ACCEPTED_ANSI_CHECKSUMS: [u16] = [
+        const ACCEPTED_ANSI_CHECKSUMS: [u16; 3] = [
             // \u001b ASCII sum
             92 + 117 + 48 + 48 + 49 + 98,
             // \033 ASCII sum
@@ -140,7 +140,7 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
                 in_ansi_esc = true;
             }
 
-            ansi_sum += c;
+            ansi_sum += c as u16;
 
             if ansi_sum > MAX_ACCEPTABLE_ANSI_ESC_CHECKSUM {
                 ansi_sum = 0;
@@ -149,18 +149,17 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
             // Current ANSI escape code checksum must be at least that of the
             // shortest ANSI escape pref. (i.e., \033)
             if ansi_sum >= MIN_ACCEPTABLE_ANSI_ESC_CHECKSUM {
-                for accepted_checksum in ACCEPTED_ANSI_CHECKSUMS {
-                    if ansi_sum == accepted_checksum {
-
+                for accepted_checksum in ACCEPTED_ANSI_CHECKSUMS.iter() {
+                    if ansi_sum == *accepted_checksum {
                     }
                 }
             }
 
             if !in_ansi_esc {
                 // Put a char on the screen with the current ANSI style
-                Self::write_char(VgatChar {
+                self.write_char(VgatChar {
                     style: curr_ansi_style,
-                    value: c,
+                    value: c as u8,
                 });
             }
         }

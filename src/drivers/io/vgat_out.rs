@@ -5,15 +5,18 @@ use core::{
 };
 
 /// The default starting location of the vga text mode framebuffer.
-pub const DEFAULT_VGA_TEXT_BUFF_START: *mut &mut [VgatChar; DEFAULT_VGA_TEXT_BUFF_WIDTH] =
-    0xb8000 as *mut &mut [VgatChar; DEFAULT_VGA_TEXT_BUFF_WIDTH];
+pub const DEFAULT_VGA_TEXT_BUFF_START: *mut VgatBuffer<
+    DEFAULT_VGA_TEXT_BUFF_WIDTH,
+    DEFAULT_VGA_TEXT_BUFF_HEIGHT,
+> = 0xb8000 as *mut VgatBuffer<DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_BUFF_HEIGHT>;
 
 /// The default dimensions of the VGA framebuffer.
-pub const DEFAULT_VGA_TEXT_BUFF_WIDTH: usize = 25;
-pub const DEFAULT_VGA_TEXT_BUFF_HEIGHT: usize = 80;
+pub const DEFAULT_VGA_TEXT_BUFF_WIDTH: usize = 80;
+pub const DEFAULT_VGA_TEXT_BUFF_HEIGHT: usize = 25;
 
 /// A VGA text framebuffer color (see below wikipedia link for explanation).
 #[derive(Clone, Copy)]
+#[repr(u8)]
 pub enum Color {
     Black = 0x0,
     Blue = 0x1,
@@ -41,6 +44,16 @@ pub struct VgatDisplayStyle {
     fg_color: Color,
 }
 
+impl Default for VgatDisplayStyle {
+    fn default() -> Self {
+        Self {
+            blinking: false,
+            bg_color: Color::White,
+            fg_color: Color::Black,
+        }
+    }
+}
+
 impl Into<u8> for &VgatDisplayStyle {
     fn into(self) -> u8 {
         (self.blinking as u8) << 7 | (self.bg_color as u8) << 4 | self.fg_color as u8
@@ -58,9 +71,10 @@ impl Into<u8> for VgatDisplayStyle {
 /// - a UTF-8 char being displayed
 /// - a blinking status (0 | 1)
 /// - a background color OR a foreground color
+#[repr(C)]
 pub struct VgatChar {
-    style: u8,
     value: u8,
+    style: u8,
 }
 
 impl VgatChar {
@@ -72,10 +86,21 @@ impl VgatChar {
     }
 }
 
+impl From<char> for VgatChar {
+    fn from(c: char) -> Self {
+        Self::new(c as u8, VgatDisplayStyle::default())
+    }
+}
+
+#[repr(transparent)]
+pub struct VgatBuffer<const W: usize, const H: usize> {
+    buff: [[VgatChar; W]; H],
+}
+
 /// An output that implements a byte-sink writer for the vga text mode out.
 pub struct VgatOut<'a, const W: usize, const H: usize> {
     // The resolution of the screen in terms of chars displayable
-    char_buffer: &'a mut [&'a mut [VgatChar; W]; H],
+    char_buffer: &'a mut VgatBuffer<W, H>,
 
     // The index of the next position in which a char can be inserted
     head_pos: (usize, usize),
@@ -86,24 +111,29 @@ pub struct VgatOut<'a, const W: usize, const H: usize> {
 /// Dimensions are indicated by the associated W and H constants, also
 /// (optionall) provided by the developer (see provided Default implementation).
 impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
-    pub unsafe fn new(vgat_buff_start: *mut &'a mut [VgatChar; W]) -> Self {
+    pub unsafe fn new(vgat_buff_start: *mut VgatBuffer<W, H>) -> Self {
         Self {
-            char_buffer: core::slice::from_raw_parts_mut::<&'a mut [VgatChar; W]>(
-                vgat_buff_start,
-                W * H,
-            )
-            .try_into()
-            .expect("failed to obtain a vga framebuffer with the specified dimensions"),
+            char_buffer: &mut *vgat_buff_start,
             head_pos: (0, 0),
         }
     }
 
     /// Writes a VGA char to the screen.
     pub fn write_char(&mut self, c: VgatChar) {
-        self.char_buffer[self.head_pos.1][self.head_pos.0] = c.into();
+        self.char_buffer.buff[self.head_pos.0][self.head_pos.1] = c.into();
+        self.head_pos.1 += 1;
 
-        self.head_pos.0 = (self.head_pos.0 + 1) % W;
-        self.head_pos.1 = (self.head_pos.1 + 1) % H;
+        if self.head_pos.1 >= W {
+            self.head_pos.1 = 0;
+            self.head_pos.0 = (self.head_pos.0 + 1) % H;
+        }
+    }
+}
+
+impl<const W: usize, const H: usize> VgatOut<'static, W, H> {
+    /// Applies the vgatout adapter as the global stdout.
+    pub fn use_as_stdout(&'static mut self) {
+        *super::STDOUT.lock() = Some(self);
     }
 }
 
@@ -115,9 +145,9 @@ impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_
     }
 }
 
-impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
+impl<'a, const W: usize, const H: usize> Write for VgatOut<'a, W, H> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        // Whenever an ANSI sequence begins, change the output format to
+        // Whenever an ANSI sequence begins, change the output format too
         const NEXT_ANSI_ESC_CHAR: [char; 4] = ['\\', 'x', '1', 'b'];
         // e.g., when \ is inputted, 1
         // when x is inputted, 2, etc...
@@ -189,6 +219,12 @@ impl<const W: usize, const H: usize> Write for VgatOut<'_, W, H> {
 
                 ansi_esc_i += 1;
             } else {
+                if c == '\n' {
+                    self.head_pos.0 = (self.head_pos.0 + 1) % H;
+                    self.head_pos.1 = 0;
+                    continue;
+                }
+
                 self.write_char(VgatChar {
                     style: (&curr_display_style).into(),
                     value: c as u8,

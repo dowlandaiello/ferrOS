@@ -109,7 +109,7 @@ pub struct VgatOut<'a, const W: usize, const H: usize> {
 /// Obtain a safe, bounds-checked slice of framebuffer slots from an unsafe,
 /// raw pointer provided by the developer (namely, vgat_buff_start).
 /// Dimensions are indicated by the associated W and H constants, also
-/// (optionall) provided by the developer (see provided Default implementation).
+/// (optionally) provided by the developer (see provided Default implementation).
 impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
     pub unsafe fn new(vgat_buff_start: *mut VgatBuffer<W, H>) -> Self {
         Self {

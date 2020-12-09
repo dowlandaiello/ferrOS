@@ -130,13 +130,6 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
     }
 }
 
-impl<const W: usize, const H: usize> VgatOut<'static, W, H> {
-    /// Applies the vgatout adapter as the global stdout.
-    pub fn use_as_stdout(&'static mut self) {
-        *super::STDOUT.lock() = Some(self);
-    }
-}
-
 /// If the user doesn't provide a specific framebuffer, use the default one,
 /// which has a static context.
 impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_BUFF_HEIGHT> {

@@ -3,16 +3,18 @@
 
 use core::{fmt::Write, panic::PanicInfo};
 use ferr_os::{
-    drivers::io::{vgat_out::{VgatChar, VgatOut, DEFAULT_VGA_TEXT_BUFF_HEIGHT, DEFAULT_VGA_TEXT_BUFF_WIDTH},self},
+    drivers::io::{
+        self,
+        vgat_out::{VgatChar, VgatOut, DEFAULT_VGA_TEXT_BUFF_HEIGHT, DEFAULT_VGA_TEXT_BUFF_WIDTH},
+    },
     osattrs,
+    runtime::Core,
 };
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    *io::STDOUT.lock() = Some();
-
-    let mut stdout = VgatOut::default();
-    stdout.write_str(osattrs::FERROS_BANNER);
+    let mut vgatout = VgatOut::default();
+    let rt = Core::new(Some(&mut vgatout), Some(osattrs::FERROS_BANNER));
 
     loop {}
 }

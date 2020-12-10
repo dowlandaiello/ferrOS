@@ -1,2 +1,5 @@
 # ferrOS
-A UNIX-like operating system written in Rust for the raspberry pi 3. 
+
+Not POSIX-compliant **at all**, but this operating system is configurable out
+the wazoo. Basically Gentoo meets dwm--"need a new feature? just patch it into
+the source code PEPE"

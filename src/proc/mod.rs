@@ -1,3 +1,5 @@
+use core::iter::Iterator;
+
 /// The default process manager employed by the system.
 pub mod procd;
 
@@ -8,9 +10,13 @@ pub type PID = usize;
 /// providing relevant information when required. May or may not be the same
 /// system as the init system.
 pub trait ProcManager<'a> {
+    /// Executes a new process and adds it to the procmanager by spawning a
+    /// process with the indicated tty, environment, command & working dir
+    fn spawn_proc(&mut self, env: &'a str, cmd: &'a str) -> PID;
+
     /// Obtains a list of PIDs representing the processes running on the system
     /// at this point in time.
-    fn procs_running(&self) -> &[PID];
+    fn procs_running<T: Iterator<Item=&'a PID>>(&self) -> T;
 
     /// Obtains the PID, TTY, status, runtime, memory usage and target. Returns
     /// None if the process can't be found.

@@ -22,17 +22,16 @@ enum ProcGroupSupervisor<'a> {
     Empty,
 }
 
-impl ProcGroupSupervisor<'_> {
-    pub fn procs_running(&self) -> &[PID] {
+impl<'a> ProcGroupSupervisor<'a> {
+    pub fn procs_running(&self) -> &'a mut (dyn Iterator<Item = PID>) {
         match self {
             // Immediate children can be returned as an iter immediately
-            Self::WithChildren(children, _) => children
+            Self::WithChildren(children, _) => &mut children
                 .into_iter()
                 .filter(|maybe_child| maybe_child.is_some())
-                .map(|child| child.unwrap().pid)
-                .collect::<&[PID]>(),
+                .map(|child| child.unwrap().pid),
             // Recursively obtain this node's children
-            Self::WithGrandchildren(a, b) => a.iter().chain(b.iter()).collect::<&[PID]>(),
+            Self::WithGrandchildren(a, b) => &mut a.procs_running().chain(b.procs_running()),
         }
     }
 }

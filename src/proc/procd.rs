@@ -1,8 +1,5 @@
-use super::{ProcDetails, ProcManager, PID};
-use core::{
-    iter::{Iterator, Map},
-    slice::Iter,
-};
+use super::{super::util::iter::Chained, ProcDetails, ProcManager, PID};
+use core::{iter::Iterator, slice::Iter};
 
 pub const N_PROCS_PER_BKT: usize = 69;
 
@@ -23,7 +20,7 @@ enum ProcGroupSupervisor<'a> {
 }
 
 impl<'a> ProcGroupSupervisor<'a> {
-    pub fn procs_running(&self) -> &'a mut (dyn Iterator<Item = PID>) {
+    pub fn procs_running(&self) -> Chained<impl Iterator, impl Iterator> {
         match self {
             // Immediate children can be returned as an iter immediately
             Self::WithChildren(children, _) => &mut children
@@ -31,7 +28,9 @@ impl<'a> ProcGroupSupervisor<'a> {
                 .filter(|maybe_child| maybe_child.is_some())
                 .map(|child| child.unwrap().pid),
             // Recursively obtain this node's children
-            Self::WithGrandchildren(a, b) => &mut a.procs_running().chain(b.procs_running()),
+            Self::WithGrandchildren(a, b) => {
+                Chained::new(a.procs_running(), Some(b.procs_running()))
+            }
         }
     }
 }
@@ -55,7 +54,7 @@ impl<'a> ProcManager<'a> for Manager<'a> {
         self.n_procs
     }
 
-    fn procs_running<Map>(&self) -> Map {
+    fn procs_running<Chained>(&self) -> Chained {
         // Recursively obtain a list of running processes on the system
         self.root.procs_running()
     }

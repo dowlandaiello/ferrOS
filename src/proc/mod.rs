@@ -16,7 +16,7 @@ pub trait ProcManager<'a> {
 
     /// Obtains a list of PIDs representing the processes running on the system
     /// at this point in time.
-    fn procs_running<T: Iterator<Item=&'a PID>>(&self) -> T;
+    fn procs_running<T: Iterator<Item = &'a PID>>(&self) -> T;
 
     /// Obtains the PID, TTY, status, runtime, memory usage and target. Returns
     /// None if the process can't be found.
@@ -78,4 +78,3 @@ pub enum ProcStatus {
     SleepingUnint,
     Dead,
 }
-

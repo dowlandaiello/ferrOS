@@ -36,6 +36,8 @@ impl<'a> ProcManager<'a> for Manager<'a> {
         pid
     }
 
+    // Note: self is explicitly bound to the a lifetime to prevent the results
+    // from this function from outliving the process manager itself.
     fn procs_running(&'a self) -> Self::I {
         self.procs
             .iter()

@@ -6,7 +6,7 @@ use core::{
 };
 
 /// The maximum number or processes that may be spawned.
-pub const MAX_PROCS: usize = usize::MAX;
+pub const MAX_PROCS: usize = u8::MAX as usize;
 
 /// A fixed-size collection of processes.
 type ProcCollection<'a> = [Option<ProcDetails<'a>>; MAX_PROCS];

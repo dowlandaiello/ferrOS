@@ -12,7 +12,7 @@ pub struct Core<'a> {
     stdout: KernelModule<&'a mut (dyn Write)>,
 
     /// A sequence printed before the runtime starts.
-    startup_greeter: KernelModule<&'a str>,
+    pub startup_greeter: KernelModule<&'a str>,
 }
 
 impl<'a> Core<'a> {
@@ -25,22 +25,24 @@ impl<'a> Core<'a> {
             startup_greeter,
         }
     }
+
+    #[doc(hidden)]
+    pub fn _print(&mut self, args: fmt::Arguments<'_>) {
+        if let Some(stdout) = &mut self.stdout {
+            stdout.write_fmt(args);
+        }
+    }
 }
 
+#[macro_export]
 macro_rules! println {
     ($($rt:ident)?) => (print!($rt, "\n"));
-    ($($rt:ident)?,$($arg:tt)*) => ({
+    ($rt:ident,$($arg:tt)*) => ({
         $rt._print(core::format_args_nl!($($arg)*));
-    })
+    });
 }
 
+#[macro_export]
 macro_rules! print {
     ($($rt:ident)?,$($arg:tt)*) => (_print($rt, core::format_args!($($arg)*)));
-}
-
-#[doc(hidden)]
-pub fn _print(rt: &mut Core<'_>, args: fmt::Arguments<'_>) {
-    if let Some(stdout) = &mut rt.stdout {
-        stdout.write_fmt(args);
-    }
 }

@@ -19,3 +19,11 @@ x86_64 = "0.13.2"
 [dependencies.num]
 version = "0.3.1"
 default-features = false
+
+[dependencies.num-derive]
+version = "0.3.3"
+default-features = false
+
+[dependencies.num-traits]
+version = "0.2.14"
+default-features = false

@@ -4,7 +4,7 @@ use core::{
     fmt::{self, Write},
     ops::{Add, Sub},
 };
-use num::traits::FromPrimitive;
+use num_derive::FromPrimitive;
 
 /// The default starting location of the vga text mode framebuffer.
 pub const DEFAULT_VGA_TEXT_BUFF_START: *mut VgatBuffer<
@@ -17,7 +17,7 @@ pub const DEFAULT_VGA_TEXT_BUFF_WIDTH: usize = 80;
 pub const DEFAULT_VGA_TEXT_BUFF_HEIGHT: usize = 25;
 
 /// A VGA text framebuffer color (see below wikipedia link for explanation).
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, FromPrimitive)]
 #[repr(u8)]
 pub enum Color {
     Black = 0x0 as u8,
@@ -52,11 +52,17 @@ impl Color {
     }
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Self::White
+    }
+}
+
 impl Add<u8> for Color {
     type Output = Self;
 
     fn add(self, other: u8) -> Self {
-        Self::From((self as u8 + other) as Self)
+        num::FromPrimitive::from_u8(self as u8 + other).unwrap_or_default()
     }
 }
 
@@ -64,19 +70,7 @@ impl Sub<u8> for Color {
     type Output = Self;
 
     fn sub(self, other: u8) -> Self {
-        Self::From((self as u8 - other) as Self)
-    }
-}
-
-impl FromPrimitive for Color {
-    fn from_i64(n: i64) -> Option<Self> {
-        None
-    }
-
-    fn from_u64(n: u64) -> Option<Self> {
-        match n {
-            0x0 => Self::h
-        }
+        num::FromPrimitive::from_u8(self as u8 - other).unwrap_or_default()
     }
 }
 
@@ -179,22 +173,26 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
 
     /// Adopts the context specified in the given ANSI string starting at i.0. Returns the number
     /// of characters that were found to be part of the ANSI context escape sequence.
-    fn adopt_ansi(&mut self, i: (usize, usize), s: &str) -> u8 {
-        match (i.1, s[i.0 + i.1]) {
-            (0, '\\') | (1, 'x') | (2, '1') | (3, 'b') | (4, '[') => (),
-            (5, n) => {
-                self.color_state = match n {
-                    '0' => VgatDisplayStyle::default(),
-                    '1' => self.color_state.fg_color.bold_variant(),
-                    '2' => self.color_state.fg_color.dim_variant(),
-                };
-            }
-            _ => {
-                return i.0;
-            }
-        };
+    fn adopt_ansi(&mut self, start: usize, s: &str) -> u8 {
+        let mut i = 0;
 
-        self.adopt_ansi((i.0, i.1 + 1), s)
+        for (i, c) in s[start..].chars().enumerate() {
+            match (i, c) {
+                (0, '\\') | (1, 'x') | (2, '1') | (3, 'b') | (4, '[') => (),
+                (5, n) => {
+                    match n {
+                        '0' => self.color_state = VgatDisplayStyle::default(),
+                        '1' => self.color_state.fg_color = self.color_state.fg_color.bold_variant(),
+                        '2' => self.color_state.fg_color = self.color_state.fg_color.dim_variant(),
+                        _ => (),
+                    };
+                },
+                (6, ';') => (),
+                (6, 'm') | _ => break,
+            };
+        }
+
+        i
     }
 }
 

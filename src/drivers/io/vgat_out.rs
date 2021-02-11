@@ -50,6 +50,20 @@ impl Color {
     pub fn bold_variant(&self) -> Self {
         self.dim_variant() + 0x8
     }
+
+    /// Converts the index of the ANSI color to the color primitive.
+    pub fn from_ansi_code(&self, ansi_code: u8) -> Self {
+        match ansi_code {
+            0 => Self::Black,
+            1 => Self::Red,
+            2 => Self::Green,
+            3 => Self::Brown,
+            4 => Self::Blue,
+            5 => Self::Magenta,
+            6 => Self::Cyan,
+            7 => Self::LightGray,
+        }
+    }
 }
 
 impl Default for Color {
@@ -171,24 +185,58 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
         }
     }
 
-    /// Adopts the context specified in the given ANSI string starting at i.0. Returns the number
+    /// Adopts the context specified in the given ANSI string. Returns the number
     /// of characters that were found to be part of the ANSI context escape sequence.
-    fn adopt_ansi(&mut self, start: usize, s: &str) -> u8 {
+    fn adopt_ansi(&mut self, s: &str) -> u8 {
         let mut i = 0;
 
-        for (i, c) in s[start..].chars().enumerate() {
+        let mut bold = false;
+
+        for (i, c) in s.chars().enumerate() {
             match (i, c) {
                 (0, '\\') | (1, 'x') | (2, '1') | (3, 'b') | (4, '[') => (),
                 (5, n) => {
                     match n {
                         '0' => self.color_state = VgatDisplayStyle::default(),
-                        '1' => self.color_state.fg_color = self.color_state.fg_color.bold_variant(),
-                        '2' => self.color_state.fg_color = self.color_state.fg_color.dim_variant(),
+                        '1' => {
+                            self.color_state.fg_color = self.color_state.fg_color.bold_variant();
+                            bold = true;
+                        }
+                        '2' => {
+                            self.color_state.fg_color = self.color_state.fg_color.dim_variant();
+                            bold = false;
+                        }
                         _ => (),
                     };
-                },
+                }
                 (6, ';') => (),
-                (6, 'm') | _ => break,
+                (6, 'm') => break,
+                (7, '0') => {
+                    self.color_state.fg_color = VgatDisplayStyle::default().fg_color;
+                },
+                (7, '3') => (),
+                (8, ';') => (),
+                (8, n) => {
+                    self.color_state.fg_color = Color::from_ansi_code(n);
+
+                    if bold {
+                        self.color_state.fg_color = self.color_state.fg_color.bold_variant();
+                    }
+                },
+                (9, 'm') => break,
+                (9, ';') => (),
+                (10, '0') => {
+                    self.color_state.bg_color = VgatDisplayStyle::default().bg_color;
+                },
+                (10, '4') => (),
+                (11, n) => {
+                    self.color_state.bg_color = Color::from_ansi_code(n);
+
+                    if bold {
+                        self.color_state.bg_color = self.color_state.bg_color.bold_variant();
+                    }
+                }
+                _ => break,
             };
         }
 
@@ -206,6 +254,11 @@ impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_
 
 impl<'a, const W: usize, const H: usize> Write for VgatOut<'a, W, H> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        for (i, c) in s.chars().enumerate() {
+            if c == '\\' {
+            }
+        }        
+
         Ok(())
     }
 }

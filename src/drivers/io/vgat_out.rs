@@ -52,16 +52,17 @@ impl Color {
     }
 
     /// Converts the index of the ANSI color to the color primitive.
-    pub fn from_ansi_code(&self, ansi_code: u8) -> Self {
+    pub fn from_ansi_code(ansi_code: char) -> Self {
         match ansi_code {
-            0 => Self::Black,
-            1 => Self::Red,
-            2 => Self::Green,
-            3 => Self::Brown,
-            4 => Self::Blue,
-            5 => Self::Magenta,
-            6 => Self::Cyan,
-            7 => Self::LightGray,
+            '0' => Self::Black,
+            '1' => Self::Red,
+            '2' => Self::Green,
+            '3' => Self::Brown,
+            '4' => Self::Blue,
+            '5' => Self::Magenta,
+            '6' => Self::Cyan,
+            '7' => Self::LightGray,
+            _ => Self::White,
         }
     }
 }
@@ -100,8 +101,8 @@ impl Default for VgatDisplayStyle {
     fn default() -> Self {
         Self {
             blinking: false,
-            bg_color: Color::White,
-            fg_color: Color::Black,
+            bg_color: Color::Black,
+            fg_color: Color::White,
         }
     }
 }
@@ -180,9 +181,14 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
         self.head_pos.1 += 1;
 
         if self.head_pos.1 >= W {
-            self.head_pos.1 = 0;
-            self.head_pos.0 = (self.head_pos.0 + 1) % H;
+            self.advance_print_feed();
         }
+    }
+
+    /// Moves the vga writer to the next print line.
+    fn advance_print_feed(&mut self) {
+        self.head_pos.1 = 0;
+        self.head_pos.0 = (self.head_pos.0 + 1) % H;
     }
 
     /// Adopts the context specified in the given ANSI string. Returns the number
@@ -213,7 +219,7 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
                 (6, 'm') => break,
                 (7, '0') => {
                     self.color_state.fg_color = VgatDisplayStyle::default().fg_color;
-                },
+                }
                 (7, '3') => (),
                 (8, ';') => (),
                 (8, n) => {
@@ -222,12 +228,12 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
                     if bold {
                         self.color_state.fg_color = self.color_state.fg_color.bold_variant();
                     }
-                },
+                }
                 (9, 'm') => break,
                 (9, ';') => (),
                 (10, '0') => {
                     self.color_state.bg_color = VgatDisplayStyle::default().bg_color;
-                },
+                }
                 (10, '4') => (),
                 (11, n) => {
                     self.color_state.bg_color = Color::from_ansi_code(n);
@@ -254,10 +260,26 @@ impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_
 
 impl<'a, const W: usize, const H: usize> Write for VgatOut<'a, W, H> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        let mut skipped_ansi_chars = 0;
+
         for (i, c) in s.chars().enumerate() {
-            if c == '\\' {
+            if skipped_ansi_chars > 0 {
+                skipped_ansi_chars -= 1;
             }
-        }        
+
+            if skipped_ansi_chars == 0 {
+                if c == '\\' {
+                    skipped_ansi_chars = self.adopt_ansi(&s[i..]);
+                } else if c == '\n' {
+                    self.advance_print_feed();
+                } else {
+                    self.write_char(VgatChar {
+                        value: c as u8,
+                        style: (&self.color_state).into(),
+                    });
+                }
+            }
+        }
 
         Ok(())
     }

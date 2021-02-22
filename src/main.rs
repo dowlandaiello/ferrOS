@@ -16,8 +16,8 @@ use ferr_os::{
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     let mut vgatout = VgatOut::default();
-    let mut rt = Core::new(Some(&mut vgatout), Some(osattrs::FERROS_BANNER));
-    let greeter = rt.startup_greeter.unwrap();
+    let mut rt = Core::new(Some(&mut vgatout), Some(osattrs::FERROS_BANNER), None);
+    let greeter = rt.greeter().unwrap();
     println!(rt, "{}", greeter);
 
     loop {}

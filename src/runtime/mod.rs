@@ -2,9 +2,16 @@ use core::{
     default::Default,
     fmt::{self, Write},
 };
-use x86_64::structures::InterruptDescriptorTable;
 
-pub const DEFAULT_IDT: InterruptDescriptorTable = 
+use crate::drivers::io::vgat_out::VgatOut;
+use x86_64::structures::idt::InterruptDescriptorTable;
+
+/// The default IDT implementation.
+pub const DEFAULT_IDT: InterruptDescriptorTable = {
+    let mut idt = InterruptDescriptorTable::new();
+    idt.
+    idt
+};
 
 /// Different modules can be loaded into the kernel, all of which are optional.
 pub type KernelModule<T> = Option<T>;
@@ -25,11 +32,12 @@ impl<'a> Core<'a> {
     pub fn new(
         stdout: KernelModule<&'a mut (dyn Write)>,
         startup_greeter: KernelModule<&'a str>,
-        idt: KernelModule<&'a InterruptDescriptorTable>,
+        idt: KernelModule<InterruptDescriptorTable>,
     ) -> Self {
         Self {
             stdout.unwrap_or,
             startup_greeter,
+            idt: idt.unwrap_or(DEFAULT_IDT),
         }
     }
 
@@ -39,7 +47,7 @@ impl<'a> Core<'a> {
     }
 
     /// Obtains a reference to the kernel's greeter.
-    pub fn greeter() -> KernelModule<&'a str> {
+    pub fn greeter(&self) -> KernelModule<&'a str> {
         self.startup_greeter
     }
 

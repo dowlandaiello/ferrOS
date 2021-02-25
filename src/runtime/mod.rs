@@ -6,15 +6,17 @@ use core::{
 use crate::drivers::io::vgat_out::VgatOut;
 use x86_64::structures::idt::InterruptDescriptorTable;
 
+/// Definitions for lazily-evaluated kernel module defaults.
+pub mod mod_defaults;
+
 /// The default IDT implementation.
 pub const DEFAULT_IDT: InterruptDescriptorTable = {
     let mut idt = InterruptDescriptorTable::new();
-    idt.
     idt
 };
 
 /// Different modules can be loaded into the kernel, all of which are optional.
-pub type KernelModule<T> = Option<T>;
+pub type KernelModule<T> where T: Default = Option<T>;
 
 /// A configuration of various core services provided by the kernel.
 pub struct Core<'a> {
@@ -35,15 +37,15 @@ impl<'a> Core<'a> {
         idt: KernelModule<InterruptDescriptorTable>,
     ) -> Self {
         Self {
-            stdout.unwrap_or,
+            stdout: stdout.unwrap_or(&mut *mod_defaults::STDOUT),
             startup_greeter,
             idt: idt.unwrap_or(DEFAULT_IDT),
         }
     }
 
     /// Obtains a handle for the kernel's standard output.
-    pub fn stdout() -> KernelModule<&'a mut (dyn Write)> {
-        self.stdout
+    pub fn stdout(&'a mut self) -> KernelModule<&'a mut (dyn Write)> {
+        Some(self.stdout)
     }
 
     /// Obtains a reference to the kernel's greeter.
@@ -52,15 +54,13 @@ impl<'a> Core<'a> {
     }
 
     /// Obtains a non-mutable reference to the kernel's interruptor descriptor table.
-    pub fn idt() -> InterruptDescriptorTable {
-        self.idt
+    pub fn idt(&self) -> &InterruptDescriptorTable {
+        &self.idt
     } 
 
     #[doc(hidden)]
     pub fn _print(&mut self, args: fmt::Arguments<'_>) {
-        if let Some(stdout) = &mut self.stdout {
-            stdout.write_fmt(args);
-        }
+        self.stdout.write_fmt(args);
     }
 }
 

@@ -37,7 +37,7 @@ impl<'a> Core<'a> {
         idt: KernelModule<InterruptDescriptorTable>,
     ) -> Self {
         Self {
-            stdout: stdout.unwrap_or(&mut *mod_defaults::STDOUT),
+            stdout: stdout.unwrap_or(&mut *mod_defaults::STDOUT.lock()),
             startup_greeter,
             idt: idt.unwrap_or(DEFAULT_IDT),
         }

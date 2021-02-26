@@ -250,11 +250,21 @@ impl<'a, const W: usize, const H: usize> VgatOut<'a, W, H> {
     }
 }
 
+impl VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_BUFF_HEIGHT> {
+    const fn default() -> Self {
+        unsafe {
+            Self {
+
+            }
+        }
+    }
+}
+
 /// If the user doesn't provide a specific framebuffer, use the default one,
 /// which has a static context.
 impl Default for VgatOut<'static, DEFAULT_VGA_TEXT_BUFF_WIDTH, DEFAULT_VGA_TEXT_BUFF_HEIGHT> {
     fn default() -> Self {
-        unsafe { Self::new(DEFAULT_VGA_TEXT_BUFF_START) }
+        Self::default()
     }
 }
 
